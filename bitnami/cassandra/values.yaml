@@ -31,7 +31,8 @@ fullnameOverride: ""
 kubeVersion: ""
 ## @param commonLabels Labels to add to all deployed objects (sub-charts are not considered)
 ##
-commonLabels: {}
+commonLabels: 
+  - app: cassandra
 ## @param commonAnnotations Annotations to add to all deployed objects
 ##
 commonAnnotations: {}
@@ -142,11 +143,11 @@ existingConfiguration: ""
 ##
 cluster:
   name: cassandra
-  seedCount: 1
+  seedCount: 2
   numTokens: 256
   datacenter: dc1
   rack: rack1
-  endpointSnitch: SimpleSnitch
+  endpointSnitch: GossipingPropertyFileSnitch
   ## NOTE: internodeEncryption requires tlsEncryptionSecretName
   ##
   internodeEncryption: none
@@ -157,6 +158,14 @@ cluster:
   ##   - hostname/IP
   ##
   extraSeeds: []
+  racks:
+   - rack1
+   - rack2
+   - rack1
+  datacenters:
+   - dc1
+   - dc1
+   - dc2
   enableUDF: false
 
 ## JVM Settings
@@ -165,7 +174,7 @@ cluster:
 ## @param jvm.newHeapSize Set Java Virtual Machine new heap size (HEAP_NEWSIZE). Calculated automatically if `nil`
 ##
 jvm:
-  extraOpts: ""
+  extraOpts: "-Xms512m -Xmx1024m"
   ## Memory settings: These are calculated automatically unless specified otherwise
   ## To run on environments with little resources (<= 8GB), tune your heap settings:
   ## - calculate 1/2 ram and cap to 1024MB
@@ -203,7 +212,7 @@ extraEnvVarsSecret: ""
 
 ## @param replicaCount Number of Cassandra replicas
 ##
-replicaCount: 1
+replicaCount: 2
 ## @param updateStrategy.type updateStrategy for Cassandra statefulset
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
 ##
@@ -257,7 +266,16 @@ nodeAffinityPreset:
 ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 ## NOTE: podAffinityPreset, podAntiAffinityPreset, and nodeAffinityPreset will be ignored when it's set
 ##
-affinity: {}
+affinity: 
+  podAntiAffinity: # This is to tell that to prevent 2 zookeeper in same host node, we use `podAntiAffinity`, instead, if you use `podAffinity` it will always placing all in 1 node.
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: "app"
+              operator: In
+              values:
+              - cassandra
+        topologyKey: "kubernetes.io/hostname"
 ## @param nodeSelector Node labels for pod assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
 ##
@@ -304,11 +322,10 @@ containerSecurityContext:
 ##
 resources:
   ## Example:
-  ## limits:
-  ##    cpu: 2
-  ##    memory: 4Gi
+  limits:
+    #  cpu: 500m
+     memory: 1536Mi
   ##
-  limits: {}
   ## Examples:
   ## requests:
   ##    cpu: 2

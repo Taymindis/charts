@@ -215,6 +215,28 @@ spec:
             - bash
             - -ec
             - |
+              # Cassandra Racks
+              {{- if .Values.cluster.racks }}
+                {{- range $i, $v := .Values.cluster.racks }}
+              {{ printf "CASS_RACKS_%d=%s" $i $v }}
+                {{- end }}
+              {{- end }}
+
+              CASSANDRA_RACK_TARGET=CASS_RACKS_"${HOSTNAME##*-}"
+              export CASSANDRA_RACK=${!CASSANDRA_RACK_TARGET}
+
+
+              # Cassandra Datacenters
+              {{- if .Values.cluster.datacenters }}
+                {{- range $i, $v := .Values.cluster.datacenters }}
+              {{ printf "CASS_DCS_%d=%s" $i $v }}
+                {{- end }}
+              {{- end }}
+
+              CASSANDRA_DC_TARGET=CASS_DCS_"${HOSTNAME##*-}"
+              export CASSANDRA_DATACENTER=${!CASSANDRA_DC_TARGET}
+
+
               # Node 0 is the password seeder
               if [[ $POD_NAME =~ (.*)-0$ ]]; then
                   echo "Setting node as password seeder"
@@ -259,8 +281,10 @@ spec:
               value: {{ .Values.dbUser.user | quote }}
             - name: CASSANDRA_NUM_TOKENS
               value: {{ .Values.cluster.numTokens | quote }}
+            {{- if not .Values.cluster.datacenters }}
             - name: CASSANDRA_DATACENTER
               value: {{ .Values.cluster.datacenter }}
+            {{- end }}
             - name: CASSANDRA_ENDPOINT_SNITCH
               value: {{ .Values.cluster.endpointSnitch }}
             - name: CASSANDRA_KEYSTORE_LOCATION
@@ -289,8 +313,10 @@ spec:
                   name: {{ (include "cassandra.tlsPasswordsSecret" .) }}
                   key: keystore-password
             {{- end }}
+            {{- if not .Values.cluster.racks }}
             - name: CASSANDRA_RACK
               value: {{ .Values.cluster.rack }}
+            {{- end }}
             {{- if .Values.jvm.maxHeapSize }}
             - name: MAX_HEAP_SIZE
               value: {{ .Values.jvm.maxHeapSize | quote }}
